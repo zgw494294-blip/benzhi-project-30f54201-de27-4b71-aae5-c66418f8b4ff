@@ -83,6 +83,8 @@ func writeError(writer http.ResponseWriter, err error) {
 		writeJSON(writer, http.StatusUnprocessableEntity, errorResponse{Error: "字段校验失败", Code: "validation_error", Fields: []domain.FieldError{fieldError}})
 	case errors.Is(err, persistence.ErrNotFound), errors.Is(err, domain.ErrNotFound):
 		writeJSON(writer, http.StatusNotFound, errorResponse{Error: err.Error(), Code: "not_found"})
+	case errors.Is(err, persistence.ErrConflict):
+		writeJSON(writer, http.StatusConflict, errorResponse{Error: err.Error(), Code: "evidence_conflict"})
 	case errors.Is(err, application.ErrIdempotencyKey):
 		writeJSON(writer, http.StatusBadRequest, errorResponse{Error: "必须提供 idempotencyKey", Code: "missing_idempotency_key"})
 	case errors.Is(err, domain.ErrBatchSealed), errors.Is(err, domain.ErrReviewLocked):

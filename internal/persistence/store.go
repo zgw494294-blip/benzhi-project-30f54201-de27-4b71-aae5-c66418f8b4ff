@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"pdconsole/internal/domain"
@@ -18,6 +19,7 @@ type Store struct {
 	directory    string
 	snapshotPath string
 	auditPath    string
+	lockPath     string
 	snapshot     Snapshot
 	clock        func() time.Time
 }
@@ -32,7 +34,8 @@ func Open(directory string) (*Store, error) {
 	}
 	store := &Store{
 		directory: directory, snapshotPath: filepath.Join(directory, "snapshot.json"),
-		auditPath: filepath.Join(directory, "audit.log"), clock: time.Now,
+		auditPath: filepath.Join(directory, "audit.log"), lockPath: filepath.Join(directory, ".commit.lock"),
+		clock: time.Now,
 	}
 	snapshot, err := loadSnapshot(store.snapshotPath)
 	if err != nil {
@@ -110,6 +113,25 @@ func (s *Store) Commit(change Commit) error {
 	if existing, exists := s.snapshot.Batches[change.Batch.ID]; exists && change.Operation == "batch.created" && existing != change.Batch {
 		return fmt.Errorf("批次编号 %s 已存在", change.Batch.ID)
 	}
+	released, err := s.lockForCommit()
+	if err != nil {
+		return err
+	}
+	defer released()
+	// 在跨进程锁内重新校验磁盘审计日志末端，防止本进程打开数据目录后其它实例先提交，
+	// 导致本进程依据过期的序号和前序哈希追加事件、破坏日志连续性。
+	diskEvents, err := readAndValidateAudit(s.auditPath)
+	if err != nil {
+		return err
+	}
+	diskSequence, diskHash := uint64(0), ""
+	if len(diskEvents) > 0 {
+		last := diskEvents[len(diskEvents)-1]
+		diskSequence, diskHash = last.Sequence, last.Hash
+	}
+	if diskSequence != s.snapshot.Sequence || diskHash != s.snapshot.LastAuditHash {
+		return fmt.Errorf("%w: 本地证据库已被其它实例更新，请重新打开后再提交", ErrConflict)
+	}
 	clone, err := domain.CloneBatch(change.Batch)
 	if err != nil {
 		return err
@@ -150,6 +172,22 @@ func (s *Store) Commit(change Commit) error {
 	}
 	s.snapshot = next
 	return nil
+}
+
+// lockForCommit 获取跨进程排他锁，保证“读审计末端—追加事件—替换快照”为原子临界区。
+func (s *Store) lockForCommit() (func(), error) {
+	file, err := os.OpenFile(s.lockPath, os.O_CREATE|os.O_RDWR, 0o600)
+	if err != nil {
+		return nil, fmt.Errorf("打开提交锁文件: %w", err)
+	}
+	if err := syscall.Flock(int(file.Fd()), syscall.LOCK_EX); err != nil {
+		_ = file.Close()
+		return nil, fmt.Errorf("获取提交排他锁: %w", err)
+	}
+	return func() {
+		_ = syscall.Flock(int(file.Fd()), syscall.LOCK_UN)
+		_ = file.Close()
+	}, nil
 }
 
 func cloneSnapshot(source Snapshot) Snapshot {
