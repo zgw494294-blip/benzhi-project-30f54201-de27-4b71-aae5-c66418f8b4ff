@@ -133,7 +133,13 @@ func (s *Service) VerifyCertificate(batchID string) (CertificateVerification, er
 		anomalies = append(anomalies, "审计链校验失败："+auditErr.Error())
 	}
 	certificateValid := batch.Certificate.Verify()
-	evidenceValid := pkg.EvidenceListDigest == batch.Certificate.SealedPayload.EvidenceListDigest && len(domain.MissingEvidenceItems(batch, pkg.EvidenceList)) == 0
+	evidenceDigestValid, evidenceDigestErr := domain.SealedEvidenceValid(batch)
+	if evidenceDigestErr != nil {
+		anomalies = append(anomalies, "封存证据摘要复算失败："+evidenceDigestErr.Error())
+	} else if !evidenceDigestValid {
+		anomalies = append(anomalies, "封存证据摘要与当前证据内容不一致")
+	}
+	evidenceValid := evidenceDigestValid && pkg.EvidenceListDigest == batch.Certificate.SealedPayload.EvidenceListDigest && len(domain.MissingEvidenceItems(batch, pkg.EvidenceList)) == 0
 	auditValid := auditErr == nil
 	for _, anomaly := range anomalies {
 		if strings.Contains(anomaly, "审计") {

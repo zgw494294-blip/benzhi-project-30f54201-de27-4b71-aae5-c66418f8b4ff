@@ -34,6 +34,11 @@ func ValidateRestoredBatch(batch *Batch) error {
 		if batch.VerificationPackage == nil || len(batch.VerificationPackage.ValidateDigests()) > 0 {
 			return invalid("verificationPackage", "复归核验包校验失败")
 		}
+		if valid, err := SealedEvidenceValid(batch); err != nil {
+			return invalid("evidenceDigest", "封存证据摘要复算失败："+err.Error())
+		} else if !valid {
+			return invalid("evidenceDigest", "封存证据摘要与当前证据内容不一致")
+		}
 	}
 	return nil
 }
