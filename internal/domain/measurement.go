@@ -127,6 +127,9 @@ func (b *Batch) AddMeasurements(measurements []Measurement, now time.Time) (Meas
 		} else {
 			rounds[roundKey] = true
 		}
+		if measurement.Purpose == "retest" && !b.hasOpenRetestTaskForPoint(measurement.PointID) {
+			failures = append(failures, FieldError{Field: fmt.Sprintf("measurements[%d].purpose", index), Message: "复验读数必须对应已登记整改的未关闭偏差"})
+		}
 		summary.PointCounts[measurement.PointID]++
 		key := measurement.PointID + "/" + measurement.Purpose
 		if minRounds[key] == 0 || measurement.Round < minRounds[key] {

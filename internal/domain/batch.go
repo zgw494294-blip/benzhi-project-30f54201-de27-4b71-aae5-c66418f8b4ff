@@ -108,6 +108,28 @@ func (b *Batch) OpenDeviationCount() int {
 	return count
 }
 
+// hasOpenRetestTaskForPoint 报告是否存在未关闭、已登记整改且复验范围包含 pointID 的偏差，
+// 用于在校验复验读数时确认具备复验前提。
+func (b *Batch) hasOpenRetestTaskForPoint(pointID string) bool {
+	for _, deviation := range b.Deviations {
+		if deviation.IsClosed() {
+			continue
+		}
+		if deviation.Correction == nil || deviation.RetestTask == nil {
+			continue
+		}
+		if deviation.PointID != pointID {
+			continue
+		}
+		for _, id := range deviation.Correction.RetestPoints {
+			if id == pointID {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func (b *Batch) FindDeviation(id string) (*Deviation, error) {
 	for i := range b.Deviations {
 		if b.Deviations[i].ID == id {
