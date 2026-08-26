@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="科研温室隔离舱启用验证工作台">
+  <title>隔离舱启用验证工作台</title>
+  <link rel="stylesheet" href="/assets/app.css">
+</head>
+<body>
+  <header class="topbar">
+    <div><span class="eyebrow">科研温室 · 生物安全</span><h1>隔离舱启用验证</h1></div>
+    <div class="system-state"><span class="pulse"></span>本地审计链已启用</div>
+  </header>
+  <main class="layout">
+    <aside class="sidebar">
+      <div class="search"><label for="search">检索案卷</label><input id="search" placeholder="编号或隔离舱名称"></div>
+      <button id="new-case" class="primary wide">＋ 创建验证案</button>
+      <div id="case-list" class="case-list" aria-live="polite"></div>
+      <section class="verify-box">
+        <h2>凭据真实性校验</h2>
+        <p>输入签发编号，重新计算封存摘要。</p>
+        <input id="credential-id" placeholder="AC-2026…">
+        <button id="verify">重新计算并校验</button>
+        <div id="verify-result"></div>
+      </section>
+    </aside>
+    <section class="workspace">
+      <div id="notice" role="status"></div>
+      <div id="empty" class="empty"><div class="seal">ΔP</div><h2>选择案卷或开始新的启用验证</h2><p>一条闭环流程留存边界、规则、原始读数、偏差处置与批准凭据。</p></div>
+      <div id="case-view" hidden></div>
+    </section>
+  </main>
+
+  <dialog id="create-dialog">
+    <form id="create-form" method="dialog">
+      <div class="dialog-head"><div><span class="eyebrow">STEP 01</span><h2>登记隔离边界与验收限值</h2></div><button type="button" class="icon" data-close>×</button></div>
+      <div class="grid two">
+        <label>隔离舱名称<input name="chamberName" required placeholder="例如：植物病原隔离舱 A"></label>
+        <label>相邻区域<input name="adjacent" required placeholder="例如：洁净走廊"></label>
+        <label>气流方向<input name="airflowDirection" required value="洁净走廊 → 隔离舱"></label>
+        <label>验证工程师<input name="actor" required value="验证工程师"></label>
+      </div>
+      <h3>冻结后使用的验收限值</h3>
+      <div class="grid three limits">
+        <label>最小压差 / Pa<input name="pressureMinPa" type="number" step="0.1" value="15" required></label>
+        <label>持续窗口 / 秒<input name="pressureDurationSec" type="number" value="60" required></label>
+        <label>最大泄漏率 / %<input name="maxLeakagePercent" type="number" step="0.1" value="5" required></label>
+        <label>互锁响应 / 秒<input name="interlockResponseSec" type="number" step="0.1" value="2" required></label>
+        <label>恢复时限 / 分钟<input name="recoveryMaxMinutes" type="number" step="0.1" value="20" required></label>
+        <label>目标粒子浓度<input name="recoveryTargetParticles" type="number" value="3520" required></label>
+      </div>
+      <div class="actions"><button type="button" data-close>取消</button><button class="primary" type="submit">创建验证案</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="edit-dialog">
+    <form id="edit-form" method="dialog"><div class="dialog-head"><div><span class="eyebrow">受控修订</span><h2>修订草拟案卷基础资料</h2></div><button type="button" class="icon" data-close>×</button></div>
+      <label>隔离舱名称<input name="chamberName" required></label><label>相邻区域（每行一个）<textarea name="adjacent" required></textarea></label><label>气流方向<input name="airflowDirection" required></label>
+      <div class="grid three limits"><label>最小压差 / Pa<input name="pressureMinPa" type="number" step="0.1" required></label><label>持续窗口 / 秒<input name="pressureDurationSec" type="number" required></label><label>最大泄漏率 / %<input name="maxLeakagePercent" type="number" step="0.1" required></label><label>互锁响应 / 秒<input name="interlockResponseSec" type="number" step="0.1" required></label><label>恢复时限 / 分钟<input name="recoveryMaxMinutes" type="number" step="0.1" required></label><label>目标粒子浓度<input name="recoveryTargetParticles" type="number" required></label></div>
+      <div class="actions"><button type="button" data-close>取消</button><button class="primary" type="submit">按当前版本提交修订</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="preflight-dialog"><div class="dialog-head"><div><span class="eyebrow">冻结预检</span><h2>确认测试方案预览</h2></div><button type="button" class="icon" data-close>×</button></div><div id="preflight-content"></div><div class="actions"><button type="button" data-close>取消</button><button id="confirm-freeze" class="primary" type="button">确认并冻结此预览</button></div></dialog>
+
+  <dialog id="run-dialog">
+    <form id="run-form" method="dialog">
+      <div class="dialog-head"><div><span class="eyebrow">现场证据</span><h2 id="run-title">录入测试读数</h2></div><button type="button" class="icon" data-close>×</button></div>
+      <input type="hidden" name="checkpointId"><div class="grid two"><label>仪器编号<input name="instrumentId" value="INST-2026-001" required></label><label>校准证书编号<input name="certificateNumber" value="CAL-2026-001" required></label><label>校准生效时间<input name="calibrationValidFrom" type="datetime-local" required></label><label>校准截止时间<input name="calibrationValidUntil" type="datetime-local" required></label><label>现场见证人<input name="witness" value="现场见证人" required></label></div>
+      <div id="measurement-fields" class="grid two"></div>
+      <div class="actions"><button type="button" data-close>取消</button><button class="primary" type="submit">提交原始读数并自动判定</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="batch-dialog"><form id="batch-form" method="dialog"><div class="dialog-head"><div><span class="eyebrow">原子批量</span><h2>按冻结顺序批量录入</h2></div><button type="button" class="icon" data-close>×</button></div><p>队列中的检查点将先全部校验，任一输入无效时不会保存任何一项。</p><div id="batch-fields"></div><div class="grid two"><label>仪器编号<input name="instrumentId" value="INST-2026-001" required></label><label>校准证书编号<input name="certificateNumber" value="CAL-2026-001" required></label><label>校准生效时间<input name="calibrationValidFrom" type="datetime-local" required></label><label>校准截止时间<input name="calibrationValidUntil" type="datetime-local" required></label><label>现场见证人<input name="witness" value="现场见证人" required></label></div><div class="actions"><button type="button" data-close>取消</button><button class="primary" type="submit">原子提交队列</button></div></form></dialog>
+
+  <dialog id="remediate-dialog">
+    <form id="remediate-form" method="dialog"><div class="dialog-head"><div><span class="eyebrow">偏差 CAPA</span><h2>记录整改并生成定向复测</h2></div><button type="button" class="icon" data-close>×</button></div><input type="hidden" name="deviationId"><div class="grid two"><label>风险等级<select name="riskLevel"><option value="LOW">低</option><option value="MEDIUM">中</option><option value="HIGH">高</option></select></label><label>调整建议等级理由<input name="riskOverrideReason" placeholder="保持建议等级时可空"></label><label>责任人<input name="owner" required value="验证工程师"></label><label>完成期限<input name="dueAt" type="datetime-local" required></label></div><label>根因<textarea name="rootCause" required placeholder="填写经调查确认的根因"></textarea></label><label>纠正措施<textarea name="correctiveAction" required placeholder="填写已完成且可核查的纠正措施"></textarea></label><div class="actions"><button type="button" data-close>取消</button><button class="primary" type="submit">确认整改并派生复测</button></div></form>
+  </dialog>
+  <script src="/assets/app.js" defer></script>
+</body>
+</html>
