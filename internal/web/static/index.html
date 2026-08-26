@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>电缆局放诊断放行台</title>
+  <link rel="stylesheet" href="/assets/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <p class="eyebrow">高压电缆试验 · 证据闭环</p>
+      <h1>电缆局放诊断放行台</h1>
+      <p class="subtitle">冻结边界、采集读数、定位偏差，完成双人安全复核并封存复归放行证书。</p>
+    </div>
+    <div id="health" class="health">正在校验本地证据库…</div>
+  </header>
+
+  <main class="layout">
+    <aside class="sidebar panel">
+      <div class="panel-title">
+        <h2>试验批次</h2>
+        <button id="refreshBatches" class="ghost">刷新</button>
+      </div>
+      <form id="createForm" class="stack compact">
+        <label>电缆区段<input name="cableSection" required placeholder="如：220kV 北港线 A 段"></label>
+        <label>回路名称<input name="circuitName" required placeholder="如：北港一回"></label>
+        <label>试验负责人<input name="testOwner" required placeholder="姓名"></label>
+		<input name="sourceBatchID" type="hidden">
+		<label class="check"><input name="confirmDuplicate" type="checkbox"> 已辨认未封存同回路批次，确认继续独立建批</label>
+		<div id="batchMatches" class="compact-result muted">输入区段和回路后自动查重。</div>
+        <button type="submit">新建试验批次</button>
+      </form>
+      <div id="batchList" class="batch-list" aria-live="polite"></div>
+    </aside>
+
+    <section class="workspace">
+      <div id="emptyState" class="panel empty">
+        <span class="empty-mark">PD</span>
+        <h2>选择或新建一个试验批次</h2>
+        <p>工作台会按版本推进建批、冻结、诊断、复验和签发，所有操作写入哈希审计链。</p>
+      </div>
+
+      <div id="batchView" class="hidden">
+        <section class="panel batch-head">
+          <div>
+            <p id="batchID" class="mono"></p>
+            <h2 id="batchTitle"></h2>
+            <p id="batchMeta" class="muted"></p>
+          </div>
+          <div class="status-area">
+            <span id="statusBadge" class="badge"></span>
+            <span id="versionBadge" class="version"></span>
+          </div>
+        </section>
+
+        <nav class="steps" aria-label="试验流程">
+          <span>1 建批</span><span>2 冻结</span><span>3 采集</span><span>4 诊断</span>
+          <span>5 整改复验</span><span>6 双人复核</span><span>7 放行</span>
+        </nav>
+
+        <section id="freezeCard" class="panel action-card">
+          <div class="section-heading"><div><p class="step-number">02</p><h3>冻结试验边界</h3></div><p>阈值与量程冻结后不可修改。</p></div>
+          <form id="freezeForm" class="stack">
+            <div class="inline-form"><label>操作人<input name="actor" required></label><button type="button" id="addPoint" class="ghost">新增试验点</button></div>
+			<div class="table-wrap"><table><thead><tr><th>编号</th><th>名称</th><th>物理位置</th><th>量程/pC</th><th>幅值阈值/pC</th><th>趋势/%</th><th>重复次数</th><th></th></tr></thead><tbody id="pointRows"></tbody></table></div>
+			<div class="button-row"><button type="button" id="preflightScope" class="ghost">冻结预检</button><label class="check"><input id="confirmScope" type="checkbox"> 已核对规范排序后的冻结摘要</label><button type="submit">确认并冻结</button></div>
+			<div id="scopePreflight" class="compact-result muted">预检尚未执行。</div>
+          </form>
+        </section>
+
+        <section id="measurementCard" class="panel action-card">
+          <div class="section-heading"><div><p class="step-number">03</p><h3>录入现场读数</h3></div><p>支持初始采样与整改后的定向复验读数。</p></div>
+          <form id="measurementForm" class="stack">
+            <div class="inline-form"><label>提交操作人<input name="actor" required></label><button type="button" id="addMeasurement" class="ghost">新增读数行</button></div>
+			<div class="table-wrap"><table><thead><tr><th>记录编号</th><th>点位</th><th>轮次</th><th>时间</th><th>峰值</th><th>相位摘要</th><th>温度</th><th>湿度</th><th>传感器</th><th>录入人</th><th>用途</th><th></th></tr></thead><tbody id="measurementRows"></tbody></table></div>
+			<div id="measurementDraftSummary" class="compact-result muted"></div>
+			<button type="submit">原子保存全部读数</button>
+          </form>
+          <div id="measurementList" class="evidence-list"></div>
+		  <div id="diagnosisReadiness" class="compact-result"></div>
+          <form id="diagnoseForm" class="inline-form">
+            <label>诊断操作人<input name="actor" required></label>
+            <button type="submit">运行规则诊断</button>
+          </form>
+		  <div id="diagnosisReports" class="evidence-list"></div>
+        </section>
+
+        <section id="deviationCard" class="panel action-card">
+          <div class="section-heading"><div><p class="step-number">04–05</p><h3>偏差整改与定向复验</h3></div><p>每条偏差独立登记责任和复验范围。</p></div>
+          <div id="deviationList" class="deviation-list"></div>
+        </section>
+
+        <section id="reviewCard" class="panel action-card">
+          <div class="section-heading"><div><p class="step-number">06</p><h3>双人安全复核</h3></div><p>两名复核人员身份必须不同，提交后意见锁定。</p></div>
+		  <div id="reviewReadiness" class="compact-result"></div>
+          <form id="reviewForm" class="grid-form">
+            <label>操作人<input name="actor" required></label>
+            <label>复核人<input name="reviewer" required></label>
+            <label>复核角色<input name="role" placeholder="安全复核专家" required></label>
+            <label>结论<select name="approved"><option value="true">同意复归</option><option value="false">不同意复归</option></select></label>
+            <label class="wide">复核意见<textarea name="opinion" required></textarea></label>
+			<input name="evidenceDigest" type="hidden"><input name="evidenceVersion" type="hidden">
+            <button type="submit">提交并锁定意见</button>
+          </form>
+          <div id="reviewList" class="evidence-list"></div>
+        </section>
+
+        <section id="certificateCard" class="panel action-card certificate-card">
+          <div class="section-heading"><div><p class="step-number">07</p><h3>复归放行证书</h3></div><p>证书含版本、证据摘要与两名复核人。</p></div>
+          <form id="issueForm" class="inline-form">
+            <label>签发操作人<input name="actor" required></label>
+            <button type="submit">校验完整性并签发</button>
+          </form>
+          <div id="certificateView"></div>
+        </section>
+
+        <section class="panel action-card">
+          <div class="section-heading"><div><p class="step-number">证据</p><h3>操作时间线</h3></div><p>序号和前序哈希用于启动时连续性校验。</p></div>
+          <div id="timeline" class="timeline"></div>
+        </section>
+      </div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast hidden" role="status"></div>
+  <script src="/assets/app.js" defer></script>
+</body>
+</html>

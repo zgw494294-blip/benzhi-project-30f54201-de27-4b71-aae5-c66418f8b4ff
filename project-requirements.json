@@ -1,0 +1,23 @@
+{
+  "contractVersion": "project-refill-project-plan-contract-v7",
+  "projectID": "30f54201-de27-4b71-aae5-c66418f8b4ff",
+  "projectName": "电缆局放诊断放行台",
+  "interfaceKind": "web_ui",
+  "goModPath": "go.mod",
+  "requiredProperties": {
+    "localPersistence": true,
+    "minimumHTTPRoutes": 10,
+    "completeBusinessChains": 3,
+    "browserCoreWorkflow": true
+  },
+  "acceptanceCommands": [
+    {
+      "argv": ["go", "test", "./..."],
+      "working_directory": "."
+    },
+    {
+      "argv": ["go", "run", "./cmd/pdconsole", "-selfcheck", "-addr=127.0.0.1:19081"],
+      "working_directory": "."
+    }
+  ]
+}
