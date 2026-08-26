@@ -19,6 +19,7 @@ type Store struct {
 	snapshotPath string
 	auditPath    string
 	snapshot     Snapshot
+	auditCache   []AuditEvent
 	clock        func() time.Time
 }
 
@@ -51,6 +52,7 @@ func Open(directory string) (*Store, error) {
 		return nil, fmt.Errorf("%w: 快照声明了不存在的审计事件", ErrAuditCorrupt)
 	}
 	store.snapshot = snapshot
+	store.auditCache = events
 	return store, nil
 }
 
@@ -149,6 +151,7 @@ func (s *Store) Commit(change Commit) error {
 		return fmt.Errorf("审计已追加但快照保存失败，需要人工恢复: %w", err)
 	}
 	s.snapshot = next
+	s.auditCache = append(s.auditCache, event)
 	return nil
 }
 
@@ -168,10 +171,7 @@ func cloneSnapshot(source Snapshot) Snapshot {
 func (s *Store) AuditEvents(batchID string) ([]AuditEvent, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	events, err := readAndValidateAudit(s.auditPath)
-	if err != nil {
-		return nil, err
-	}
+	events := s.auditCache
 	if batchID == "" {
 		return events, nil
 	}
@@ -183,7 +183,6 @@ func (s *Store) AuditEvents(batchID string) ([]AuditEvent, error) {
 	}
 	return filtered, nil
 }
-
 func (s *Store) Health() error {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
